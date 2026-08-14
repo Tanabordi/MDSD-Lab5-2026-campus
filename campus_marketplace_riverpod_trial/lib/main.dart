@@ -4,7 +4,6 @@ import 'item.dart';
 import 'favorites_notifier.dart';
 
 void main() {
-  // ครอบแอปทั้งหมดด้วย ProviderScope เพียงครั้งเดียวที่จุดเริ่มต้น เทียบเท่า ChangeNotifierProvider
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -12,31 +11,94 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) => const MaterialApp(
-        debugShowCheckedModeBanner: false, // ปิดริบบิ้น DEBUG มุมขวาบน ไม่ให้บังไอคอนหัวใจใน AppBar
+        debugShowCheckedModeBanner: false,
         home: HomePage(),
       );
 }
 
-// ใช้ ConsumerWidget แทน StatelessWidget เพื่อรับพารามิเตอร์ "ref" เข้ามาใน build()
-class HomePage extends ConsumerWidget {
+// เปลี่ยนจาก ConsumerWidget เป็น ConsumerStatefulWidget เพื่อให้เก็บ state ของ Search Box ได้
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // ref.watch อ่านค่าปัจจุบันและสมัครรับการอัปเดตอัตโนมัติ เทียบเท่า context.watch
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
     final savedItems = ref.watch(favoritesProvider);
+    
+    // กรอง catalog ตามคำค้นหา
+    final filteredCatalog = catalog.where((item) {
+      return item.title.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('❤️ ${savedItems.length}')),
-      body: ListView(
-        children: catalog.map((item) => ListTile(
-          title: Text(item.title),
-          trailing: ElevatedButton(
-            // ref.read(...notifier) ใช้เรียกแก้ไขค่า เทียบเท่า context.read
-            onPressed: () => ref.read(favoritesProvider.notifier).add(item),
-            child: const Text('บันทึก'),
+      appBar: AppBar(
+        title: Text('❤️ ${savedItems.length}'),
+        actions: [
+          // ปุ่มโชว์เฉพาะเวลามีของในตะกร้า
+          if (savedItems.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('ยืนยันการล้างข้อมูล'),
+                    content: const Text('ล้างรายการโปรดทั้งหมดหรือไม่?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('ยกเลิก'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // ใช้ ref.read เพื่อเรียก Action ล้างข้อมูล
+                          ref.read(favoritesProvider.notifier).clear();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('ยืนยัน'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'ค้นหาสินค้า...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
           ),
-        )).toList(),
+          Expanded(
+            child: ListView(
+              children: filteredCatalog.map((item) => ListTile(
+                title: Text(item.title),
+                trailing: ElevatedButton(
+                  onPressed: () => ref.read(favoritesProvider.notifier).add(item),
+                  child: const Text('บันทึก'),
+                ),
+              )).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -11,6 +11,8 @@ class FavoritesNotifier extends StateNotifier<List<Item>> {
   void remove(Item item) => state = state.where((i) => i.id != item.id).toList();
 
   double get totalValue => state.fold(0, (sum, i) => sum + i.price);
+
+  void clear() => state = [];
 }
 
 // ประกาศ Provider เป็นตัวแปร global เทียบเท่ากับการลงทะเบียน ChangeNotifierProvider ใน main.dart
